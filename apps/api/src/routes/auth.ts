@@ -16,19 +16,29 @@ export default async function authRoutes(server: FastifyInstance) {
     reply.redirect(`https://www.strava.com/oauth/authorize?${params.toString()}`);
   });
 
-  server.get('/auth/strava/callback', async (req, reply) => {
+    server.get('/auth/strava/callback', async (req, reply) => {
     const code = (req.query as any).code as string;
     if (!code) return reply.code(400).send({ error: 'missing code' });
 
     const data = await exchangeCodeForTokens(code);
 
     setTokens(data.athlete.id, {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: data.expires_at
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: data.expires_at
     });
 
-    // redirect to your web app (you can switch to /plan here if you prefer)
-    reply.redirect(`http://localhost:3000/activities?athlete_id=${data.athlete.id}`);
-  });
+    const WEB_ORIGIN = process.env.WEB_ORIGIN || 'http://localhost:3000';
+
+    // set cookie + redirect
+    reply
+        .setCookie('athlete_id', String(data.athlete.id), {
+        path: '/',
+        httpOnly: false,
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30
+        })
+        .redirect(`${WEB_ORIGIN}/plan`);
+    });
+
 }
